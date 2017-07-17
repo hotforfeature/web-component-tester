@@ -11,8 +11,11 @@
         "strictNullChecks": false,
         "removeComments": false,
         "preserveConstEnums": true,
+        "skipLibCheck": true,
         "suppressImplicitAnyIndexErrors": true,
-        "lib": ["es2017"],
+        "lib": [
+            "es2017"
+        ],
         "declaration": true,
         "sourceMap": true,
         "pretty": true

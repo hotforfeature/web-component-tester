@@ -15,11 +15,11 @@ import * as http from 'http';
 import * as _ from 'lodash';
 import * as socketIO from 'socket.io';
 
-import {BrowserRunner} from './browserrunner';
+import { BrowserRunner, WdBrowserRunner, createBrowserRunner } from './browserrunner';
 import * as config from './config';
-import {Context} from './context';
-import {Plugin} from './plugin';
-import {webserver} from './webserver';
+import { Context } from './context';
+import { Plugin } from './plugin';
+import { webserver } from './webserver';
 
 interface ClientMessage<T> {
   browserId: number;
@@ -87,14 +87,14 @@ export async function runTests(context: Context): Promise<void> {
 
   context._socketIOServers = context._httpServers.map((httpServer) => {
     const socketIOServer = socketIO(httpServer);
-    socketIOServer.on('connection', function(socket) {
+    socketIOServer.on('connection', function (socket) {
       context.emit('log:debug', 'Test client opened sideband socket');
-      socket.on('client-event', function(data: ClientMessage<any>) {
+      socket.on('client-event', function (data: ClientMessage<any>) {
         const runner = runners[data.browserId];
         if (!runner) {
           throw new Error(
-              `Unable to find browser runner for ` +
-              `browser with id: ${data.browserId}`);
+            `Unable to find browser runner for ` +
+            `browser with id: ${data.browserId}`);
         }
         runner.onEvent(data.event, data.data);
       });
@@ -109,7 +109,7 @@ export function cancelTests(context: Context): void {
   if (!context._testRunners) {
     return;
   }
-  context._testRunners.forEach(function(tr) {
+  context._testRunners.forEach(function (tr) {
     tr.quit();
   });
 }
@@ -128,7 +128,7 @@ function runBrowsers(context: Context) {
   // Up the socket limit so that we can maintain more active requests.
   // TODO(nevir): We should be queueing the browsers above some limit too.
   http.globalAgent.maxSockets =
-      Math.max(http.globalAgent.maxSockets, numActiveBrowsers * 2);
+    Math.max(http.globalAgent.maxSockets, numActiveBrowsers * 2);
 
   context.emit('run-start', options);
 
@@ -139,7 +139,7 @@ function runBrowsers(context: Context) {
   const runners: BrowserRunner[] = [];
   let id = 0;
   for (const originalBrowserDef of options.activeBrowsers) {
-    let waitFor: undefined|Promise<void> = undefined;
+    let waitFor: undefined | Promise<void> = undefined;
     for (const server of options.webserver._servers) {
       // Needed by both `BrowserRunner` and `CliReporter`.
       const browserDef = _.clone(originalBrowserDef);
@@ -147,16 +147,16 @@ function runBrowsers(context: Context) {
       browserDef.variant = server.variant;
       _.defaultsDeep(browserDef, options.browserOptions);
 
-      const runner =
-          new BrowserRunner(context, browserDef, options, server.url, waitFor);
+      const ctor = browserDef.runnerCtor || WdBrowserRunner;
+      const runner = createBrowserRunner(ctor, context, browserDef, options, server.url, waitFor);
       promises.push(runner.donePromise.then(
-          () => {
-            context.emit('log:debug', browserDef, 'BrowserRunner complete');
-          },
-          (error) => {
-            context.emit('log:debug', browserDef, 'BrowserRunner complete');
-            errors.push(error);
-          }));
+        () => {
+          context.emit('log:debug', browserDef, 'BrowserRunner complete');
+        },
+        (error) => {
+          context.emit('log:debug', browserDef, 'BrowserRunner complete');
+          errors.push(error);
+        }));
       runners.push(runner);
       if (browserDef.browserName === 'safari') {
         // Control to Safari must be serialized. We can't launch two instances
@@ -173,7 +173,7 @@ function runBrowsers(context: Context) {
 
   return {
     runners,
-    completionPromise: (async function() {
+    completionPromise: (async function () {
       await Promise.all(promises);
       const error = errors.length > 0 ? _.union(errors).join(', ') : null;
       context.emit('run-end', error);
