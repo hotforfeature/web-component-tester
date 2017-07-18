@@ -29,24 +29,26 @@ export interface BrowserDef extends wd.Capabilities {
   sessionId: string;
   deviceName?: string;
   variant?: string;
-  runnerCtor?: BrowserRunnerCtor;
+  runnerCtor?: BrowserRunnerCtor<any>;
 }
 
-export interface BrowserRunnerCtor {
+export interface BrowserRunnerCtor<T> {
   new(emitter: NodeJS.EventEmitter, def: BrowserDef, options: Config, url: string,
-    waitFor?: Promise<void>): BrowserRunner;
+    waitFor?: Promise<void>): BrowserRunner<T>;
 }
 
-export function createBrowserRunner(ctor: BrowserRunnerCtor, emitter: NodeJS.EventEmitter,
-  def: BrowserDef, options: Config, url: string, waitFor?: Promise<void>): BrowserRunner {
+export function createBrowserRunner<T>(ctor: BrowserRunnerCtor<T>, emitter: NodeJS.EventEmitter,
+  def: BrowserDef, options: Config, url: string, waitFor?: Promise<void>): BrowserRunner<T> {
   return new ctor(emitter, def, options, url, waitFor);
 }
 
 // Browser abstraction, responsible for spinning up a browser instance via wd.js
 // and executing runner.html test files passed in options.files
-export abstract class BrowserRunner {
+export abstract class BrowserRunner<T> {
   timeout: number;
+  browser: T;
   stats: Stats;
+  sessionId: string;
   timeoutId: NodeJS.Timer;
   emitter: NodeJS.EventEmitter;
   def: BrowserDef;
@@ -99,7 +101,7 @@ export abstract class BrowserRunner {
     waitFor = waitFor || Promise.resolve();
     waitFor.then(() => {
       cleankill.onInterrupt((done) => {
-        if (!this.isBrowserRunning()) {
+        if (!this.browser) {
           return done();
         }
 
@@ -135,7 +137,7 @@ export abstract class BrowserRunner {
     if (event === 'browser-end' || event === 'browser-fail') {
       this.done(data);
     } else {
-      this.emitter.emit(event, this.def, data, this.stats);
+      this.emitter.emit(event, this.def, data, this.stats, this.browser);
     }
   }
 
@@ -149,11 +151,14 @@ export abstract class BrowserRunner {
       clearTimeout(this.timeoutId);
     }
     // Don't double-quit.
-    if (!this.isBrowserRunning()) {
+    if (!this.browser) {
       return;
     }
 
-    this.quitBrowser().then(() => {
+    const browser = this.browser;
+    this.browser = null;
+
+    this.quitBrowser(browser).then(() => {
       error ? this._reject(error) : this._resolve();
     }).catch(quitError => {
       if (quitError) {
@@ -173,7 +178,7 @@ export abstract class BrowserRunner {
       error = this.stats.failing + ' failed tests';
     }
 
-    this.emitter.emit('browser-end', this.def, error, this.stats);
+    this.emitter.emit('browser-end', this.def, error, this.stats, this.sessionId, browser);
   }
 
   extendTimeout() {
@@ -194,6 +199,5 @@ export abstract class BrowserRunner {
 
   protected abstract initBrowser(): void;
   protected abstract attachBrowser(): Promise<void>;
-  protected abstract isBrowserRunning(): boolean;
-  protected abstract quitBrowser(): Promise<void>;
+  protected abstract quitBrowser(browser: T): Promise<void>;
 }

@@ -20,10 +20,7 @@ import { Config } from './config';
 
 // Browser abstraction, responsible for spinning up a browser instance via wd.js
 // and executing runner.html test files passed in options.files
-export class WdBrowserRunner extends BrowserRunner {
-  browser: wd.Browser;
-  sessionId: string;
-
+export class WdBrowserRunner extends BrowserRunner<wd.Browser> {
   /**
    * @param emitter The emitter to send updates about test progress to.
    * @param def A BrowserDef describing and defining the browser to be run.
@@ -135,14 +132,7 @@ export class WdBrowserRunner extends BrowserRunner {
     });
   }
 
-  protected isBrowserRunning(): boolean {
-    return !!this.browser;
-  }
-
-  protected quitBrowser(): Promise<void> {
-    const browser = this.browser;
-    this.browser = null;
-
+  protected quitBrowser(browser: wd.Browser): Promise<void> {
     // Nothing to quit.
     if (!this.sessionId) {
       return Promise.resolve();
