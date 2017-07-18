@@ -12,9 +12,7 @@
  * http://polymer.github.io/PATENTS.txt
  */
 
-import * as chalk from 'chalk';
 import * as cleankill from 'cleankill';
-import * as _ from 'lodash';
 import * as wd from 'wd';
 import { Config } from './config';
 
@@ -34,13 +32,6 @@ export interface BrowserDef extends wd.Capabilities {
   runnerCtor?: BrowserRunnerCtor;
 }
 
-export interface BrowserRunner {
-  donePromise: Promise<void>;
-
-  onEvent(event: string, data: any): void;
-  quit(): void;
-}
-
 export interface BrowserRunnerCtor {
   new(emitter: NodeJS.EventEmitter, def: BrowserDef, options: Config, url: string,
     waitFor?: Promise<void>): BrowserRunner;
@@ -53,11 +44,9 @@ export function createBrowserRunner(ctor: BrowserRunnerCtor, emitter: NodeJS.Eve
 
 // Browser abstraction, responsible for spinning up a browser instance via wd.js
 // and executing runner.html test files passed in options.files
-export class WdBrowserRunner implements BrowserRunner {
+export abstract class BrowserRunner {
   timeout: number;
-  browser: wd.Browser;
   stats: Stats;
-  sessionId: string;
   timeoutId: NodeJS.Timer;
   emitter: NodeJS.EventEmitter;
   def: BrowserDef;
@@ -68,6 +57,12 @@ export class WdBrowserRunner implements BrowserRunner {
    * The url of the initial page to load in the browser when starting tests.
    */
   url: string;
+
+  get testUrl(): string {
+    const paramDelim = (this.url.indexOf('?') === -1 ? '?' : '&');
+    const extra = `${paramDelim}cli_browser_id=${this.def.id}`;
+    return this.url + extra;
+  }
 
   private _resolve: () => void;
   private _reject: (err: any) => void;
@@ -103,14 +98,8 @@ export class WdBrowserRunner implements BrowserRunner {
 
     waitFor = waitFor || Promise.resolve();
     waitFor.then(() => {
-      this.browser = wd.remote(this.def.url);
-
-      // never retry selenium commands
-      this.browser.configureHttp({ retries: -1 });
-
-
       cleankill.onInterrupt((done) => {
-        if (!this.browser) {
+        if (!this.isBrowserRunning()) {
           return done();
         }
 
@@ -118,87 +107,14 @@ export class WdBrowserRunner implements BrowserRunner {
         this.done('Interrupting');
       });
 
-      this.browser.on('command', (method: any, context: any) => {
-        emitter.emit('log:debug', this.def, chalk.cyan(method), context);
-      });
-
-      this.browser.on('http', (method: any, path: any, data: any) => {
-        if (data) {
-          emitter.emit(
-            'log:debug', this.def, chalk.magenta(method), chalk.cyan(path),
-            data);
-        } else {
-          emitter.emit(
-            'log:debug', this.def, chalk.magenta(method), chalk.cyan(path));
-        }
-      });
-
-      this.browser.on('connection', (code: any, message: any, error: any) => {
-        emitter.emit(
-          'log:warn', this.def, 'Error code ' + code + ':', message, error);
-      });
-
+      this.initBrowser();
       this.emitter.emit('browser-init', this.def, this.stats);
-
-      // Make sure that we are passing a pristine capabilities object to
-      // webdriver. None of our screwy custom properties!
-      const webdriverCapabilities = _.clone(this.def);
-      delete webdriverCapabilities.id;
-      delete webdriverCapabilities.url;
-      delete webdriverCapabilities.sessionId;
-
-      // Reusing a session?
-      if (this.def.sessionId) {
-        this.browser.attach(this.def.sessionId, (error) => {
-          this._init(error, this.def.sessionId);
-        });
-      } else {
-        this.browser.init(webdriverCapabilities, this._init.bind(this));
-      }
-    });
-  }
-
-  _init(error: any, sessionId: string) {
-    if (!this.browser) {
-      return;  // When interrupted.
-    }
-    if (error) {
-      // TODO(nevir): BEGIN TEMPORARY CHECK.
-      // https://github.com/Polymer/web-component-tester/issues/51
-      if (this.def.browserName === 'safari' && error.data) {
-        // debugger;
-        try {
-          const data = JSON.parse(error.data);
-          if (data.value && data.value.message &&
-            /Failed to connect to SafariDriver/i.test(data.value.message)) {
-            error = 'Until Selenium\'s SafariDriver supports ' +
-              'Safari 6.2+, 7.1+, & 8.0+, you must\n' +
-              'manually install it. Follow the steps at:\n' +
-              'https://github.com/SeleniumHQ/selenium/' +
-              'wiki/SafariDriver#getting-started';
-          }
-        } catch (error) {
-          // Show the original error.
-        }
-      }
-      // END TEMPORARY CHECK
-      this.done(error.data || error);
-    } else {
-      this.sessionId = sessionId;
-      this.startTest();
-      this.extendTimeout();
-    }
-  }
-
-  startTest() {
-    const paramDelim = (this.url.indexOf('?') === -1 ? '?' : '&');
-    const extra = `${paramDelim}cli_browser_id=${this.def.id}`;
-    this.browser.get(this.url + extra, (error) => {
-      if (error) {
-        this.done(error.data || error);
-      } else {
+      this.attachBrowser().then(() => {
+        this.emitter.emit('browser-attach', this.def, this.stats);
         this.extendTimeout();
-      }
+      }).catch(error => {
+        this.done(error);
+      });
     });
   }
 
@@ -219,7 +135,7 @@ export class WdBrowserRunner implements BrowserRunner {
     if (event === 'browser-end' || event === 'browser-fail') {
       this.done(data);
     } else {
-      this.emitter.emit(event, this.def, data, this.stats, this.browser);
+      this.emitter.emit(event, this.def, data, this.stats);
     }
   }
 
@@ -233,26 +149,13 @@ export class WdBrowserRunner implements BrowserRunner {
       clearTimeout(this.timeoutId);
     }
     // Don't double-quit.
-    if (!this.browser) {
+    if (!this.isBrowserRunning()) {
       return;
     }
-    const browser = this.browser;
-    this.browser = null;
 
-    this.stats.status = error ? 'error' : 'complete';
-    if (!error && this.stats.failing > 0) {
-      error = this.stats.failing + ' failed tests';
-    }
-
-    this.emitter.emit(
-      'browser-end', this.def, error, this.stats, this.sessionId, browser);
-
-    // Nothing to quit.
-    if (!this.sessionId) {
+    this.quitBrowser().then(() => {
       error ? this._reject(error) : this._resolve();
-    }
-
-    browser.quit((quitError) => {
+    }).catch(quitError => {
       if (quitError) {
         this.emitter.emit(
           'log:warn', this.def,
@@ -264,6 +167,13 @@ export class WdBrowserRunner implements BrowserRunner {
         this._resolve();
       }
     });
+
+    this.stats.status = error ? 'error' : 'complete';
+    if (!error && this.stats.failing > 0) {
+      error = this.stats.failing + ' failed tests';
+    }
+
+    this.emitter.emit('browser-end', this.def, error, this.stats);
   }
 
   extendTimeout() {
@@ -282,8 +192,8 @@ export class WdBrowserRunner implements BrowserRunner {
     this.done('quit was called');
   }
 
-  // HACK
-  static BrowserRunner = WdBrowserRunner;
+  protected abstract initBrowser(): void;
+  protected abstract attachBrowser(): Promise<void>;
+  protected abstract isBrowserRunning(): boolean;
+  protected abstract quitBrowser(): Promise<void>;
 }
-
-module.exports = WdBrowserRunner;

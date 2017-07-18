@@ -15,11 +15,12 @@ import * as http from 'http';
 import * as _ from 'lodash';
 import * as socketIO from 'socket.io';
 
-import { BrowserRunner, WdBrowserRunner, createBrowserRunner } from './browserrunner';
+import { BrowserRunner, createBrowserRunner } from './browserrunner';
 import * as config from './config';
 import { Context } from './context';
 import { Plugin } from './plugin';
 import { webserver } from './webserver';
+import { WdBrowserRunner } from './wd-browserrunner';
 
 interface ClientMessage<T> {
   browserId: number;
