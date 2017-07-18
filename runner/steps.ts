@@ -137,7 +137,7 @@ function runBrowsers(context: Context) {
 
   const promises: Promise<void>[] = [];
 
-  const runners: BrowserRunner[] = [];
+  const runners: BrowserRunner<any>[] = [];
   let id = 0;
   for (const originalBrowserDef of options.activeBrowsers) {
     let waitFor: undefined | Promise<void> = undefined;

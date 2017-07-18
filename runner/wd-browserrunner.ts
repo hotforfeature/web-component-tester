@@ -93,7 +93,7 @@ export class WdBrowserRunner extends BrowserRunner<wd.Browser> {
       }
     }).then(({ error, sessionId }) => {
       return new Promise<void>((resolve, reject) => {
-        if (!this.isBrowserRunning()) {
+        if (!this.browser) {
           return resolve();  // When interrupted.
         }
         if (error) {

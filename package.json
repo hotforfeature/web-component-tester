@@ -1,10 +1,10 @@
 {
-  "name": "web-component-tester",
+  "name": "web-component-tester-custom-runner",
   "version": "6.0.0",
   "--private-wct--": {
     "client-side-version-range": "4 - 6 || ^6.0.0-prerelease.1"
   },
-  "description": "web-component-tester makes testing your web components a breeze!",
+  "description": "A fork of web-component-tester that allows custom BrowserRunners",
   "keywords": [
     "browser",
     "grunt",
@@ -16,12 +16,12 @@
     "web component",
     "web"
   ],
-  "homepage": "https://github.com/Polymer/web-component-tester",
-  "bugs": "https://github.com/Polymer/web-component-tester/issues",
+  "homepage": "https://github.com/hotforfeature/web-component-tester",
+  "bugs": "https://github.com/hotforfeature/web-component-tester/issues",
   "license": "BSD-3-Clause",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Polymer/web-component-tester.git"
+    "url": "https://github.com/hotforfeature/web-component-tester.git"
   },
   "main": "runner.js",
   "bin": {
