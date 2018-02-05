@@ -100,10 +100,10 @@ export abstract class BrowserRunner<T> {
 
     waitFor = waitFor || Promise.resolve();
     waitFor.then(() => {
-      cleankill.onInterrupt((done) => {
+      cleankill.onInterrupt(() => {
         return new Promise(resolve => {
           if (!this.browser) {
-            return done();
+            return resolve();
           }
 
           this.donePromise.then(() => resolve(), () => resolve());

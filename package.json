@@ -5,8 +5,7 @@
     "client-side-version-range": "4 - 6 || ^6.0.0-prerelease.1",
     "wct-browser-legacy-version-range": "0.0.1-pre.1 || ^1.0.0"
   },
-  "description":
-    "A fork of web-component-tester that allows custom BrowserRunners",
+  "description": "A fork of web-component-tester that allows custom BrowserRunners",
   "keywords": [
     "browser",
     "grunt",
@@ -51,8 +50,7 @@
     "test": "tsc && gulp test",
     "prepublishOnly": "gulp prepublish",
     "test:watch": "watch 'gulp test:unit' runner/ browser/ bin/ test/ tasks/",
-    "format":
-      "find runner test | grep '\\.js$\\|\\.ts$' | xargs ./node_modules/.bin/clang-format --style=file -i"
+    "format": "find runner test | grep '\\.js$\\|\\.ts$' | xargs ./node_modules/.bin/clang-format --style=file -i"
   },
   "dependencies": {
     "@polymer/sinonjs": "^1.14.1",
