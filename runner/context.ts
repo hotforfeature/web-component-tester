@@ -20,7 +20,7 @@ import * as socketIO from 'socket.io';
 import * as http from 'spdy';
 import * as util from 'util';
 
-import {BrowserRunner} from './browserrunner';
+import { BrowserRunner } from './browserrunner';
 import * as config from './config';
 import {Plugin} from './plugin';
 
@@ -46,10 +46,10 @@ export type Handler =
  */
 export class Context extends events.EventEmitter {
   options: config.Config;
-  private _hookHandlers: {[key: string]: Handler[]} = {};
+  private _hookHandlers: { [key: string]: Handler[] } = {};
   _socketIOServers: SocketIO.Server[];
   _httpServers: http.Server[];
-  _testRunners: BrowserRunner[];
+  _testRunners: BrowserRunner<any>[];
 
   constructor(options?: config.Config) {
     super();
@@ -133,9 +133,9 @@ export class Context extends events.EventEmitter {
     this.emit('log:debug', 'hook:', name);
 
     const hooks = (this._hookHandlers[name] || []);
-    type BoundHook = (cb: (err: any) => void) => (void|Promise<any>);
+    type BoundHook = (cb: (err: any) => void) => (void | Promise<any>);
     let boundHooks: BoundHook[];
-    let done: (err?: any) => void = (_err: any) => {};
+    let done: (err?: any) => void = (_err: any) => { };
     let argsEnd = args.length - 1;
     if (args[argsEnd] instanceof Function) {
       done = args[argsEnd];
@@ -143,7 +143,7 @@ export class Context extends events.EventEmitter {
     }
     const hookArgs = args.slice(0, argsEnd + 1);
     boundHooks =
-        hooks.map((hook) => hook.bind.apply(hook, [null].concat(hookArgs)));
+      hooks.map((hook) => hook.bind.apply(hook, [null].concat(hookArgs)));
     if (!boundHooks) {
       boundHooks = <any>hooks;
     }
@@ -205,8 +205,8 @@ export class Context extends events.EventEmitter {
   enabledPlugins(): string[] {
     // Plugins with falsy configuration or disabled: true are _not_ loaded.
     const pairs = _.reject(
-        (<any>_).pairs(this.options.plugins),
-        (p: [string, {disabled: boolean}]) => !p[1] || p[1].disabled);
+      (<any>_).pairs(this.options.plugins),
+      (p: [string, { disabled: boolean }]) => !p[1] || p[1].disabled);
     return _.map(pairs, (p) => p[0]);
   }
 

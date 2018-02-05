@@ -8,9 +8,10 @@
  * subject to an additional IP rights grant found at http://polymer.github.io/PATENTS.txt
  */
 module.exports = {
-  cli:    require('./runner/cli'),
+  cli: require('./runner/cli'),
   config: require('./runner/config'),
-  gulp:   require('./runner/gulp'),
-  steps:  require('./runner/steps'),
-  test:   require('./runner/test'),
+  gulp: require('./runner/gulp'),
+  steps: require('./runner/steps'),
+  test: require('./runner/test'),
+  BrowserRunner: require('./runner/browserrunner').BrowserRunner,
 };
