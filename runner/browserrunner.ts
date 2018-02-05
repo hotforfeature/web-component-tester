@@ -101,7 +101,7 @@ export abstract class BrowserRunner<T> {
     waitFor = waitFor || Promise.resolve();
     waitFor.then(() => {
       cleankill.onInterrupt(() => {
-        return new Promise(resolve => {
+        return new Promise((resolve) => {
           if (!this.browser) {
             return resolve();
           }
@@ -116,7 +116,7 @@ export abstract class BrowserRunner<T> {
       this.attachBrowser().then(() => {
         this.emitter.emit('browser-attach', this.def, this.stats);
         this.extendTimeout();
-      }).catch(error => {
+      }).catch((error) => {
         this.done(error);
       });
     });
@@ -162,7 +162,7 @@ export abstract class BrowserRunner<T> {
 
     this.quitBrowser(browser).then(() => {
       error ? this._reject(error) : this._resolve();
-    }).catch(quitError => {
+    }).catch((quitError) => {
       if (quitError) {
         this.emitter.emit(
           'log:warn', this.def,
